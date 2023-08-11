@@ -1,4 +1,4 @@
-import { gql } from "apollo-server-express"; //will create a schema
+import { gql } from "apollo-server-express";
 
 const Schema = gql`
   type User {
@@ -6,39 +6,37 @@ const Schema = gql`
     name: String
     email: String
     phone_number: String
-    password: String!
+    password: String
   }
 
   type AuthPayload {
-    token: String!
-    user: User!
+    token: String
+    user: User
     message: String
     qrcode: String
     secret: String
   }
 
   type QrcodeResult {
-    message: String!
-    secretKey: String!
-    qrCode: String!
+    message: String
+    token: String
   }
 
   type Result {
-    success: Boolean,
+    success: Boolean
     message: String
+    user: User
   }
 
-  #handle user commands
   type Query {
-    getAllUsers: [User] #will return multiple Person instances
-    getUserProfile(id: Int): User 
+    getUserProfile(): User! 
   }
 
   type Mutation {
     signUp(name: String!, phone_number: String!, email: String!, password: String!): AuthPayload!
     login(email: String!, password: String!): AuthPayload!
     changePassword(currentPassword: String!, newPassword: String!): Result!
-    enableTwoFactorAuth(username: String!): QrcodeResult!
+    loginWithTwoFactorAuth(email: String!,verificationCode: String!): QrcodeResult!
   }
 `;
 export default Schema;

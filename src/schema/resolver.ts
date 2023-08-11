@@ -1,11 +1,12 @@
 import User, { IUser } from "../models/User";
 import bcrypt from 'bcryptjs';
-import { Request } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
 
-const SECRET_KEY = "aU$th_$secret"
+const SECRET_KEY = process.env.JWT_SECRET || "";
+
 const generateToken = (user: IUser) => {
     const token = jwt.sign({ userId: user._id }, SECRET_KEY, {
         expiresIn: '1h'
@@ -13,11 +14,17 @@ const generateToken = (user: IUser) => {
     return token;
 }
 
-const generateQRCode = async (secretKey: string, username: string) => {
+/**
+ * @description Generate QRCODE for user that can be used (two way authentication)
+ * @param secretKey 
+ * @param email 
+ * @returns 
+ */
+const generateQRCode = async (secretKey: string, email: string) => {
     try {
         const otpUrl = speakeasy.otpauthURL({
             secret: secretKey,
-            label: `Auth - ${username}`,
+            label: `Auth - ${email}`,
             issuer: 'Hanibal G',
         });
 
@@ -29,17 +36,34 @@ const generateQRCode = async (secretKey: string, username: string) => {
     }
 }
 
+/**
+ * @description Generate Verification key for user to use for two-way auth
+ * @param secretKey 
+ * @returns 
+ */
+const generateVerificationCode = (secretKey: string): string => {
+    // Generate the verification code using the secret key
+    const verificationCode = speakeasy.totp({
+        secret: secretKey,
+        encoding: 'base32',
+        algorithm: "sha256"
+    });
+
+    // console.log(verificationCode);
+    return verificationCode;
+};
+
 // When registering a new user or enabling 2FA for an existing user
-const registerUser = async (username: string) => {
+const registerUser = async (email: string) => {
     // Generate a secret key for the user
     const secret = generateSecretKey();
 
-    // Store the secret key securely in your database or any other persistent storage
+    // secret key so that we can store it on database or any other persistent storage
     const secretKey = secret.base32;
     // Associate the secret key with the user's account
 
     // Generate the QR code for the user
-    const qrCode = await generateQRCode(secret.ascii, username);
+    const qrCode = await generateQRCode(secret.base32, email);
 
     // Return the secret key and QR code to the user
     return {
@@ -48,42 +72,74 @@ const registerUser = async (username: string) => {
     };
 };
 
+/**
+ * @description Generate JWT token using user information
+ * @returns 
+ */
 const generateSecretKey = () => {
     const secret = speakeasy.generateSecret();
     return secret;
 };
 
+interface AuthenticatedRequest extends Request {
+    userId?: string; // Add userId property to Request interface
+}
+
+// Middleware to authenticate requests
+const authenticate = (resolver: any) => {
+    return async (parent: any, args: any, context: any, info: any) => {
+        const authHeader = context.req.headers.authorization;
+
+        if (authHeader) {
+            const token = authHeader.split(' ')[1]; // Assuming the token is sent as "Bearer <token>"
+            // Perform token verification logic here, such as decoding and validating the token
+            // If the token is valid, you can set the user information in the context object
+            // Example: context.user = decodedUser;
+            return resolver(parent, args, context, info);
+        } else {
+            throw new Error('Unauthorized');
+        }
+    };
+};
+// Resolver function to get user profile
+const getUserProfile = async (_: any, __: any, { req }: { req: AuthenticatedRequest }) => {
+    try {
+        const userId = req.userId; // Assuming the authenticated user's ID is available in req.userId
+
+        // Retrieve the user profile based on the userId
+        const profile = await User.findById(userId);
+
+        if (!profile) {
+            throw new Error('User profile not found');
+        }
+
+        return { user: profile };
+    } catch (error) {
+        console.log(error);
+        throw new Error('Failed to fetch user profile');
+    }
+};
+
+// Apply authentication middleware to getUserProfile resolver
+const authenticatedGetUserProfile = authenticate(getUserProfile);
+
 const Resolvers = {
     Query: {
-        getAllUsers: async () => {
-            try {
-                const _users = await User.find();
-                return _users;
-            } catch (error) {
-                console.error('Failed to fetch users:', error);
-                throw error;
-            }
-        },
-        getUserProfile: async (_: any, { email }: { email: string }) => {
-            console.log(email);
-            //get the object that contains the specified ID.
-            return await User.findOne({ email });
-        },
+        getUserProfile: authenticatedGetUserProfile
     },
     Mutation: {
         signUp: async (_: any, { name, email, phone_number, password }: { email: string, name: string, phone_number: string, password: string }) => {
             try {
                 const existingUser = await User.findOne({ email });
                 if (existingUser) {
-                    throw new Error("Email already exists");
+                    return { message: "Email already exists" }
                 }
 
                 const hashPassword = await bcrypt.hash(password, 12);
                 const user = new User({ name, email, password: hashPassword, phone_number });
 
                 // Register the user and generate the secret key and QR code
-                const { secretKey, qrCode } = await registerUser(user._id);
-
+                const { secretKey, qrCode } = await registerUser(user.email);
 
                 user.secret = secretKey;
                 user.qrcode = qrCode;
@@ -93,7 +149,7 @@ const Resolvers = {
                 return { token, qrcode: qrcode, secret: secretKey, user: savedUser };
             } catch (error) {
                 console.log(error);
-                // throw new Error(error);
+                return { message: "Something is wrong" }
             }
         },
         login: async (_: any, { email, password }: { email: string; password: string }) => {
@@ -114,11 +170,38 @@ const Resolvers = {
                 console.log(error);
             }
         },
+
+        loginWithTwoFactorAuth: async (_: any, { email, verificationCode }: { email: string, verificationCode: string }) => {
+            try {
+                const user = await User.findOne({ email });
+                if (!user) {
+                    return { message: "User not found" }
+                }
+                // Retrieve the user's secret key associated with their account from the database
+                const secretKey = user.secret;
+
+                // Validate the verification code using the secret key
+                const isVerified = speakeasy.totp.verify({
+                    secret: secretKey || "",
+                    encoding: 'base32',
+                    token: verificationCode
+                });
+
+                if (!isVerified) {
+                    return { message: "Invalid verification code" }
+                }
+
+                const token = generateToken(user);
+
+                return { token };
+            } catch (error) {
+                console.log(error);
+                // throw new Error(error);
+            }
+        },
         changePassword: async (_: any, { currentPassword, newPassword }: { currentPassword: string, newPassword: string }, { req }: { req: Request }) => {
-            // const result = { message: '', success: false };
             try {
                 const authorizationHeader = req.headers.authorization;
-                console.log(authorizationHeader);
                 if (!authorizationHeader) {
                     return { message: "Authentication token missing", success: false }
                 }
@@ -145,27 +228,8 @@ const Resolvers = {
                 return { message: "Failed to change password", success: false }
             }
         },
-
-        enableTwoFactorAuth: async (
-            _: any,
-            { username }: { username: string },
-        ) => {
-            try {
-                // Register the user and generate the secret key and QR code
-                const { secretKey, qrCode } = await registerUser(username);
-
-                // You can return the QR code to the client for scanning
-                return {
-                    message: 'Two-factor authentication enabled',
-                    secretKey,
-                    qrCode,
-                };
-            } catch (error) {
-                console.error(error);
-                throw new Error('Failed to enable two-factor authentication');
-            }
-        }
-
     }
 };
+
+
 export default Resolvers;
