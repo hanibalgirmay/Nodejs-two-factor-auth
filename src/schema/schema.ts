@@ -29,7 +29,7 @@ const Schema = gql`
   }
 
   type Query {
-    getUserProfile(): User! 
+    getUserProfile: QrcodeResult! 
   }
 
   type Mutation {

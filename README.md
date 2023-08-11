@@ -1,51 +1,56 @@
-Nodejs Authentication system including two-factor authorization 
+# Nodejs Authentication System Including Two-Factor Authorization
+
 Nodejs-auth is an application built with Node.js, TypeScript, Apollo GraphQL, and features authentication with login, signup, change password, and two-way QR code functionality.
 
-Prerequisites
+## Prerequisites
+
 Make sure you have the following installed:
 
-Node.js (version 18.16.0)
-yarn (version 1.22.19)
-Mongoose (version 7.4.2)
-Getting Started
+- Node.js (version 18.16.0)
+- Yarn (version 1.22.19)
+- Mongoose (version 7.4.2)
+
+## Getting Started
+
 Clone the repository:
 
-bash
-Copy
+```bash
 git clone https://github.com/hanibalgirmay/Nodejs-two-factor-auth.git
 ```
 
-Install the dependencies:
+# Install the dependencies:
 
-bash
+```bash
 Copy
 cd project-name
-npm install
+yarn install
 ```
 
-Set up the environment variables:
+## Set up the environment variables:
 
 Create a .env file in the root directory
 
 Add the following environment variables:
 
-Copy
+```
 PORT=3000
 MONGODB_URI=mongodb://localhost:27017/project-name
 JWT_SECRET=your-jwt-secret
 Replace your-jwt-secret with your own secret key for JWT token generation.
+```
 
 Start the application:
 
-bash
-Copy
-npm start
+```bash
+yarn start
 ```
 
 The application will be running at `http://localhost:4000`.
 
 Project Structure
 stylus
+
+```
 Copy
 project-name/
 ├── src/
@@ -68,26 +73,30 @@ project-name/
 ├── package.json
 ├── tsconfig.json
 └── README.md
-Features
+```
+
+## Features
 User authentication (login, signup, change-password)
-Two-way QR code authentication
-Technologies Used
-Node.js
-TypeScript
-Apollo Server
-GraphQL
-MongoDB
-bcryptjs
-speakeasy
-qrcode
-API Endpoints
-The API endpoints are accessible at http://localhost:4000/graphql.
+- Two-way QR code authentication
+
+### Technologies Used
+- Node.js
+- TypeScript
+- Apollo Server
+- GraphQL
+- MongoDB
+- bcryptjs
+- speakeasy
+- qrcode
+- Graphql Endpoints
+
+## The API endpoints are accessible at http://localhost:4000/graphql.
 
 POST /graphql: GraphQL endpoint for executing queries and mutations
-Examples
-Signup
-graphql
-Copy
+# Examples
+
+### Signup
+```graphql
 mutation {
   signUp(name: "Hanibal", email: "hanibal@example.com", phone_number: "91278362323", password: "password") {
     token
@@ -101,11 +110,46 @@ mutation {
     secret
   }
 }
-Login
-graphql
+```
+- Error message
+````graphql
+{
+  "data": {
+    "signUp": {
+      "token": null,
+      "secret": null,
+      "message": "Email already exists",
+      "qrcode": null,
+      "user": null
+    }
+  }
+}
+````
+- on Success 
+````graphql 
+{
+  "data": {
+    "signUp": {
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NGQ2NGY1NGE1ZmI5Mjc1ZmRkZDVkY2UiLCJpYXQiOjE2OTE3NjY2MTIsImV4cCI6MTY5MTc3MDIxMn0.0qxArysYMtjxAR0FABJ7Zw5yyWFyb7tJGAWSXPPR-jA",
+      "secret": "********************",
+      "message": null,
+      "qrcode": "data:image/png;base64,******************************",
+      "user": {
+        "id": "64d64f54a5fb9275fddd5dce",
+        "name": "User Name"
+      }
+    }
+  }
+}
+````
 
-Add Authorization header then request to change password
-Copy
+## QRcode Screenshoot
+![Preview Image](./screenshot/Screenshot%202023-08-11%20081100.png)
+![Preview Image](./screenshot/photo_2023-08-11_10-56-51.jpg)
+![Preview Image](./screenshot/photo_2023-08-11_10-56-54%20(2).jpg)
+
+### Login
+````graphql
 mutation {
   login(email: "hanibal@example.com", password: "password") {
     token
@@ -116,27 +160,38 @@ mutation {
     }
   }
 }
-Change Password
-graphql
-Copy
+````
+
+### Change Password
+- Add Authorization header then request to change password
+````graphql
 mutation {
   changePassword(currentPassword: "password", newPassword: "newpassword") {
     success
     message
   }
 }
-## Login with Two-Factor Authentication
-graphql
+````
+### Login with Two-Factor Authentication
+- Get Verification code from authenticator application
+````graphql
 Copy
 mutation {
-  loginWithTwoFactorAuth(email: "john@example.com", verificationCode: "123456") {
+  loginWithTwoFactorAuth(email: "hanibal@example.com", verificationCode: "123456") {
     token
+    message
   }
 }
-Contributing
-Contributions are welcome! If you find any issues or have suggestions for improvements, please feel free to open an issue or submit a pull request.
+````
 
-License
-MIT License
+````graphql
+- Needed authentication header token  
+query GetUserProfile {
+  getUserProfile {
+    message
+   token
+  }
+}
+````
 
-Feel free to customize the README.md according to your project's specific details and requirements. Make sure to include any additional instructions or guidelines that may be relevant to running or contributing to your project.
+## Hanibal Girmay

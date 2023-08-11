@@ -4,8 +4,12 @@ import { Request, Response, NextFunction } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import speakeasy from 'speakeasy';
 import qrcode from 'qrcode';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const SECRET_KEY = process.env.JWT_SECRET || "";
+// const GRAPHQ = process.env.JWT_SECRET || "";
 
 const generateToken = (user: IUser) => {
     const token = jwt.sign({ userId: user._id }, SECRET_KEY, {
@@ -22,9 +26,10 @@ const generateToken = (user: IUser) => {
  */
 const generateQRCode = async (secretKey: string, email: string) => {
     try {
+        // const authUrl = `email=${encodeURIComponent(email)}&secretKey=${encodeURIComponent(secretKey)}`;
         const otpUrl = speakeasy.otpauthURL({
             secret: secretKey,
-            label: `Auth - ${email}`,
+            label: `Nodejs Auth - ${email}`,
             issuer: 'Hanibal G',
         });
 
@@ -91,32 +96,49 @@ const authenticate = (resolver: any) => {
         const authHeader = context.req.headers.authorization;
 
         if (authHeader) {
-            const token = authHeader.split(' ')[1]; // Assuming the token is sent as "Bearer <token>"
-            // Perform token verification logic here, such as decoding and validating the token
-            // If the token is valid, you can set the user information in the context object
-            // Example: context.user = decodedUser;
-            return resolver(parent, args, context, info);
+            const token = authHeader.split(" ")[1];
+            try {
+                // Decode and verify the token
+                const decodedToken = jwt.verify(token, SECRET_KEY) as JwtPayload;
+
+                // Extract the user ID from the decoded token
+                const userId = decodedToken.userId;
+
+                // Set the user ID in the context object
+                context.user = { id: userId };
+
+                return resolver(parent, args, context, info);
+            } catch (error) {
+                // throw new Error("Invalid token");
+                return { message: "Invalid token" }
+            }
         } else {
-            throw new Error('Unauthorized');
+            // throw new Error('Unauthorized');
+            return { message: "Unauthorized" }
         }
     };
 };
 // Resolver function to get user profile
-const getUserProfile = async (_: any, __: any, { req }: { req: AuthenticatedRequest }) => {
+const getUserProfile = async (_: any, __: any, { user }: { user: { id: string } }) => {
     try {
-        const userId = req.userId; // Assuming the authenticated user's ID is available in req.userId
+        const userId = user.id; // Assuming the authenticated user's ID is available in req.userId
 
+        console.log(userId)
         // Retrieve the user profile based on the userId
         const profile = await User.findById(userId);
 
         if (!profile) {
-            throw new Error('User profile not found');
+            // throw new Error('User profile not found');
+            return { message: "User profile not found" }
         }
 
-        return { user: profile };
+        const token = generateToken(profile);
+
+        return { message: "user profile", token };
     } catch (error) {
         console.log(error);
-        throw new Error('Failed to fetch user profile');
+        return { message: "Failed to fetch user profile" }
+        // throw new Error('Failed to fetch user profile');
     }
 };
 
@@ -146,7 +168,7 @@ const Resolvers = {
                 const savedUser = await user.save();
                 const token = generateToken(savedUser);
 
-                return { token, qrcode: qrcode, secret: secretKey, user: savedUser };
+                return { token, qrcode: qrCode, secret: secretKey, user: savedUser };
             } catch (error) {
                 console.log(error);
                 return { message: "Something is wrong" }
