@@ -1,18 +1,18 @@
-Project Name
-Project Name is a sample application built with Node.js, TypeScript, Apollo GraphQL, and features authentication with login, signup, change password, and two-way QR code functionality.
+Nodejs Authentication system including two-factor authorization 
+Nodejs-auth is an application built with Node.js, TypeScript, Apollo GraphQL, and features authentication with login, signup, change password, and two-way QR code functionality.
 
 Prerequisites
 Make sure you have the following installed:
 
-Node.js (version X.X.X)
-npm (version X.X.X)
-MongoDB (version X.X.X)
+Node.js (version 18.16.0)
+yarn (version 1.22.19)
+Mongoose (version 7.4.2)
 Getting Started
 Clone the repository:
 
 bash
 Copy
-git clone https://github.com/your-username/project-name.git
+git clone https://github.com/hanibalgirmay/Nodejs-two-factor-auth.git
 ```
 
 Install the dependencies:
@@ -69,7 +69,7 @@ project-name/
 ├── tsconfig.json
 └── README.md
 Features
-User authentication (login, signup, change password)
+User authentication (login, signup, change-password)
 Two-way QR code authentication
 Technologies Used
 Node.js
@@ -89,7 +89,7 @@ Signup
 graphql
 Copy
 mutation {
-  signUp(name: "John Doe", email: "john@example.com", phone_number: "1234567890", password: "password") {
+  signUp(name: "Hanibal", email: "hanibal@example.com", phone_number: "91278362323", password: "password") {
     token
     user {
       id
@@ -99,14 +99,15 @@ mutation {
     message
     qrcode
     secret
-    verificationCode
   }
 }
 Login
 graphql
+
+Add Authorization header then request to change password
 Copy
 mutation {
-  login(email: "john@example.com", password: "password") {
+  login(email: "hanibal@example.com", password: "password") {
     token
     user {
       id
@@ -124,7 +125,7 @@ mutation {
     message
   }
 }
-Login with Two-Factor Authentication
+## Login with Two-Factor Authentication
 graphql
 Copy
 mutation {
